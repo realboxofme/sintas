@@ -1,0 +1,52 @@
+  const handleLogout = async () => {
+    if (!confirm('Apakah Anda yakin ingin logout?')) return
+
+    try {
+      setLoading(true)
+      
+      // Panggil API logout untuk mencatat log ke database
+      if (currentUser) {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ userId: currentUser.id }),
+        })
+      }
+
+      // Hapus data localStorage
+      localStorage.removeItem('sintas_user')
+      localStorage.removeItem('sintas_login_time')
+      
+      setCurrentUser(null)
+      setLoginTime(null)
+      setSessionDuration(0)
+      setIsAuthenticated(false)
+      
+      toast({
+        title: 'Logout Berhasil',
+        description: 'Anda telah logout dari sistem',
+      })
+      
+      router.push('/login')
+    } catch (error) {
+      console.error('Error during logout:', error)
+      toast({
+        title: 'Error',
+        description: 'Gagal logout. Data lokal akan dihapus.',
+        variant: 'destructive'
+      })
+      
+      // Force logout bahkan jika API gagal
+      localStorage.removeItem('sintas_user')
+      localStorage.removeItem('sintas_login_time')
+      setCurrentUser(null)
+      setLoginTime(null)
+      setSessionDuration(0)
+      setIsAuthenticated(false)
+      router.push('/login')
+    } finally {
+      setLoading(false)
+    }
+  }

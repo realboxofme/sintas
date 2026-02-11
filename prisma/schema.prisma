@@ -1,0 +1,168 @@
+// SINTAS - Sistem Integrasi Administrasi Surat
+// Database Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Role Management
+model Role {
+  id          String   @id @default(cuid())
+  nama        String   @unique // Admin, Staff, Kepala Dinas, dll
+  deskripsi   String?
+  permissions String   // JSON string of permissions
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users User[]
+}
+
+// User Management
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  nama      String
+  nip       String?  // Nomor Induk Pegawai
+  jabatan   String?
+  telepon   String?
+  roleId    String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  role           Role               @relation(fields: [roleId], references: [id])
+  suratMasuk     SuratMasuk[]
+  suratKeluar    SuratKeluar[]
+  disposisiDari  Disposisi[]        @relation("DisposisiDari")
+  disposisiKe    Disposisi[]        @relation("DisposisiKe")
+  arsip          Arsip[]
+  logAktivitas   LogAktivitas[]
+
+  @@index([roleId])
+}
+
+// Surat Masuk
+model SuratMasuk {
+  id              String   @id @default(cuid())
+  nomorSurat      String
+  tanggalSurat    DateTime
+  tanggalTerima   DateTime @default(now())
+  pengirim        String
+  perihal         String
+  sifatSurat      String   // Biasa, Penting, Rahasia
+  fileSurat       String?  // Path file
+  fileNama        String?  // Nama asli file
+  penerimaId      String   // User yang menerima surat
+  status          String   @default("Diterima") // Diterima, Diproses, Selesai, Diarsipkan
+  catatan         String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  penerima    User        @relation(fields: [penerimaId], references: [id])
+  disposisi   Disposisi[]
+  arsip       Arsip[]
+
+  @@unique([nomorSurat])
+  @@index([penerimaId])
+  @@index([status])
+  @@index([tanggalSurat])
+}
+
+// Surat Keluar
+model SuratKeluar {
+  id              String   @id @default(cuid())
+  nomorSurat      String
+  tanggalSurat    DateTime
+  penerima        String
+  alamatPenerima  String?
+  perihal         String
+  sifatSurat      String   // Biasa, Penting, Rahasia
+  fileSurat       String?  // Path file
+  fileNama        String?  // Nama asli file
+  pengirimId      String   // User yang membuat surat
+  status          String   @default("Draft") // Draft, Disetujui, Dikirim
+  catatan         String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  pengirim   User        @relation(fields: [pengirimId], references: [id])
+  arsip      Arsip[]
+
+  @@unique([nomorSurat])
+  @@index([pengirimId])
+  @@index([status])
+  @@index([tanggalSurat])
+}
+
+// Disposisi Surat
+model Disposisi {
+  id              String   @id @default(cuid())
+  suratMasukId    String
+  dariId          String   // User yang membuat disposisi
+  keId            String   // User yang diberi disposisi
+  instruksi       String   // Instruksi disposisi
+  catatan         String?
+  status          String   @default("Pending") // Pending, Dibaca, Diproses, Selesai
+  tanggalDisposisi DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  suratMasuk SuratMasuk @relation(fields: [suratMasukId], references: [id])
+  dari       User       @relation("DisposisiDari", fields: [dariId], references: [id])
+  ke         User       @relation("DisposisiKe", fields: [keId], references: [id])
+
+  @@index([suratMasukId])
+  @@index([dariId])
+  @@index([keId])
+  @@index([status])
+}
+
+// Arsip Surat
+model Arsip {
+  id              String   @id @default(cuid())
+  jenisSurat      String   // SuratMasuk, SuratKeluar
+  suratMasukId    String?
+  suratKeluarId   String?
+  kategori        String   // Klasifikasi arsip
+  lokasiArsip     String?  // Lokasi penyimpanan fisik
+  tanggalArsip    DateTime @default(now())
+  diarsipkanOlehId String   // User ID
+  retensi         Int?     // Retensi dalam tahun
+  statusArsip     String   @default("Aktif") // Aktif, Inaktif, Dimusnahkan
+  catatan         String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  suratMasuk   SuratMasuk?  @relation(fields: [suratMasukId], references: [id])
+  suratKeluar  SuratKeluar? @relation(fields: [suratKeluarId], references: [id])
+  diarsipkanOleh User        @relation(fields: [diarsipkanOlehId], references: [id])
+
+  @@index([jenisSurat])
+  @@index([kategori])
+  @@index([statusArsip])
+}
+
+// Log Aktivitas
+model LogAktivitas {
+  id         String   @id @default(cuid())
+  userId     String
+  aktivitas  String   // Deskripsi aktivitas
+  modul      String   // SuratMasuk, SuratKeluar, dll
+  dataId     String?  // ID data yang diakses/diubah
+  aksi       String   // Create, Read, Update, Delete
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([modul])
+  @@index([createdAt])
+}
